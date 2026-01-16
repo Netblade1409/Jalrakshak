@@ -137,7 +137,7 @@ const Index = () => {
       <div className="flex-1 relative">
         {/* Search Bar */}
         <div className="absolute top-4 left-4 right-4 z-10 flex justify-center">
-          <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+          <SearchBar onSearch={handleSearch} isLoading={isSearching} apiKey={apiKey} />
         </div>
 
         {/* Report Mode Indicator */}
