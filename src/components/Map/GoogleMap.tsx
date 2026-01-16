@@ -20,6 +20,13 @@ const severityColors: Record<string, string> = {
   critical: '#ef4444',
 };
 
+const severityLabels: Record<string, string> = {
+  low: 'Low Risk',
+  medium: 'Medium Risk',
+  high: 'High Risk',
+  critical: 'Critical',
+};
+
 const GoogleMap: React.FC<GoogleMapProps> = ({
   hotspots,
   center,
@@ -33,6 +40,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const selectedMarkerRef = useRef<google.maps.Marker | null>(null);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load Google Maps script
@@ -93,13 +101,15 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
       fullscreenControl: false,
     });
 
-    if (onMapClick) {
-      mapInstanceRef.current.addListener('click', (e: google.maps.MapMouseEvent) => {
-        if (e.latLng) {
-          onMapClick(e.latLng.lat(), e.latLng.lng());
-        }
-      });
-    }
+    // Create info window instance
+    infoWindowRef.current = new google.maps.InfoWindow();
+
+    // Map click handler - always enabled
+    mapInstanceRef.current.addListener('click', (e: google.maps.MapMouseEvent) => {
+      if (e.latLng && onMapClick) {
+        onMapClick(e.latLng.lat(), e.latLng.lng());
+      }
+    });
   }, [isLoaded, center, zoom, onMapClick]);
 
   // Update center when it changes
@@ -110,7 +120,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     }
   }, [center, zoom]);
 
-  // Update hotspot markers
+  // Update hotspot markers with InfoWindow popups
   useEffect(() => {
     if (!mapInstanceRef.current || !isLoaded) return;
 
@@ -134,7 +144,40 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         title: `Water Level: ${hotspot.waterLevel}cm`,
       });
 
+      // Create popup content
+      const contentString = `
+        <div style="padding: 12px; max-width: 280px; font-family: system-ui, sans-serif;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${severityColors[hotspot.severity]};"></div>
+            <span style="font-weight: 600; font-size: 14px; color: ${severityColors[hotspot.severity]};">
+              ${severityLabels[hotspot.severity]}
+            </span>
+          </div>
+          <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 12px 0; color: #1a1a1a;">
+            Water Level: ${hotspot.waterLevel}cm
+          </h3>
+          <div style="display: grid; gap: 8px; font-size: 13px; color: #666;">
+            <div style="display: flex; justify-content: space-between;">
+              <span>Reports:</span>
+              <span style="font-weight: 600; color: #1a1a1a;">${hotspot.reportCount}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Reported:</span>
+              <span style="font-weight: 600; color: #1a1a1a;">${new Date(hotspot.reportedAt).toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Coordinates:</span>
+              <span style="font-weight: 600; color: #1a1a1a;">${hotspot.latitude.toFixed(4)}, ${hotspot.longitude.toFixed(4)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
       marker.addListener('click', () => {
+        if (infoWindowRef.current && mapInstanceRef.current) {
+          infoWindowRef.current.setContent(contentString);
+          infoWindowRef.current.open(mapInstanceRef.current, marker);
+        }
         if (onHotspotClick) {
           onHotspotClick(hotspot);
         }
